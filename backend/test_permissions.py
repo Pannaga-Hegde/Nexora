@@ -5,10 +5,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.main import app
-from app.database import SessionLocal
+from app.database import engine, Base, SessionLocal
 from app.models import User, Project, ProjectMember, Message, Conversation, Task, TaskComment, CalendarEvent, Notification
 from app.auth import get_password_hash, create_access_token
 
+Base.metadata.create_all(bind=engine)
 client = TestClient(app)
 
 def test_permissions_suite():

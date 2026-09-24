@@ -15,6 +15,57 @@ test_username = f"user_{timestamp}"
 test_email = f"user_{timestamp}@university.edu"
 test_password = "SecretPassword123!"
 
+# TEST 0A: Short password ("123") rejection (Must return 422)
+print("\n0A. Testing Short Password ('123') Rejection...")
+short_pwd_res = requests.post(f"{BASE_URL}/auth/register", json={
+    "username": f"short_{timestamp}",
+    "email": f"short_{timestamp}@university.edu",
+    "password": "123",
+    "full_name": "Short Password User"
+})
+print(f"   Status: {short_pwd_res.status_code}")
+assert short_pwd_res.status_code == 422, f"Expected 422 for password '123', got {short_pwd_res.status_code}: {short_pwd_res.text}"
+print("   -> Correctly Rejected short password ('123') with 422 Unprocessable Entity.")
+
+# TEST 0B: Minimum 8-character password success (Must return 201)
+print("\n0B. Testing Exact 8-Character Password Registration...")
+min_pwd = "p" * 8
+min_pwd_res = requests.post(f"{BASE_URL}/auth/register", json={
+    "username": f"min8_{timestamp}",
+    "email": f"min8_{timestamp}@university.edu",
+    "password": min_pwd,
+    "full_name": "Min 8 Chars User"
+})
+print(f"   Status: {min_pwd_res.status_code}")
+assert min_pwd_res.status_code == 201, f"Expected 201 for 8-char password, got {min_pwd_res.status_code}: {min_pwd_res.text}"
+print("   -> Exact 8-character password successfully registered.")
+
+# TEST 0C: Maximum 128-character password success (Must return 201)
+print("\n0C. Testing Exact 128-Character Password Registration...")
+max_pwd = "P" * 128
+max_pwd_res = requests.post(f"{BASE_URL}/auth/register", json={
+    "username": f"max128_{timestamp}",
+    "email": f"max128_{timestamp}@university.edu",
+    "password": max_pwd,
+    "full_name": "Max 128 Chars User"
+})
+print(f"   Status: {max_pwd_res.status_code}")
+assert max_pwd_res.status_code == 201, f"Expected 201 for 128-char password, got {max_pwd_res.status_code}: {max_pwd_res.text}"
+print("   -> Exact 128-character password successfully registered.")
+
+# TEST 0D: Overly long password (129 characters) rejection (Must return 422)
+print("\n0D. Testing Overly Long Password (129 chars) Rejection...")
+too_long_pwd = "P" * 129
+too_long_res = requests.post(f"{BASE_URL}/auth/register", json={
+    "username": f"too_long_{timestamp}",
+    "email": f"too_long_{timestamp}@university.edu",
+    "password": too_long_pwd,
+    "full_name": "Too Long Pwd User"
+})
+print(f"   Status: {too_long_res.status_code}")
+assert too_long_res.status_code == 422, f"Expected 422 for 129-char password, got {too_long_res.status_code}: {too_long_res.text}"
+print("   -> Correctly Rejected 129-character password with 422 Unprocessable Entity.")
+
 print("\n1. Testing New User Registration...")
 reg_res = requests.post(f"{BASE_URL}/auth/register", json={
     "username": test_username,

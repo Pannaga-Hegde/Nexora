@@ -39,3 +39,11 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Local development database
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
+
+# Generated QA results
+backend/qa_results.json

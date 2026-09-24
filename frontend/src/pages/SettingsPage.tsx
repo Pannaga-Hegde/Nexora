@@ -9,6 +9,8 @@ import {
   KeyRound,
   LogOut,
   FolderGit2,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useProjectStore } from '../store/useProjectStore';
@@ -57,6 +59,12 @@ export default function SettingsPage() {
   const [leaveStatus, setLeaveStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
+
+  // Delete Account State
+  const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
+  const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+  const [deleteAccountStatus, setDeleteAccountStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     if (!activeProject) {
@@ -222,6 +230,42 @@ export default function SettingsPage() {
       }
     } finally {
       setLeaveLoading(false);
+    }
+  };
+
+  const handleConfirmDeleteAccount = async () => {
+    setDeleteAccountLoading(true);
+    setDeleteAccountError(null);
+
+    try {
+      const res = await fetch(getApiUrl('/users/me'), {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || 'Failed to delete account. Please try again.');
+      }
+
+      setIsDeleteAccountModalOpen(false);
+      setDeleteAccountStatus({
+        type: 'success',
+        text: 'Your account has been deleted. Redirecting to home...',
+      });
+
+      setTimeout(() => {
+        useAuthStore.getState().logout();
+        navigate('/', { replace: true });
+      }, 1200);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setDeleteAccountError(err.message);
+      } else {
+        setDeleteAccountError('Failed to delete account. Please try again.');
+      }
+    } finally {
+      setDeleteAccountLoading(false);
     }
   };
 
@@ -487,13 +531,30 @@ export default function SettingsPage() {
         <div className="rounded-xl border border-red-200 bg-red-50/20 p-6 shadow-xs space-y-6">
           <div>
             <div className="flex items-center gap-2 text-red-600 font-bold text-base">
-              <LogOut className="h-5 w-5" />
-              <h2>Danger Zone — Leave Project</h2>
+              <AlertTriangle className="h-5 w-5" />
+              <h2>Danger Zone</h2>
             </div>
             <p className="text-xs text-nx-muted mt-1">
-              Actions here affect your membership in the currently selected workspace.
+              Actions here permanently affect your project memberships or your personal account.
             </p>
           </div>
+
+          {deleteAccountStatus && (
+            <div
+              className={`flex items-center gap-2 rounded-lg p-3 text-xs border ${
+                deleteAccountStatus.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-rose-50 text-rose-800 border-rose-200'
+              }`}
+            >
+              {deleteAccountStatus.type === 'success' ? (
+                <CheckCircle className="h-4 w-4 shrink-0 text-emerald-600" />
+              ) : (
+                <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+              )}
+              <span>{deleteAccountStatus.text}</span>
+            </div>
+          )}
 
           {leaveStatus && (
             <div
@@ -512,6 +573,7 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* Leave Active Project Card */}
           {activeProject ? (
             <div className="rounded-xl border border-red-200 bg-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1">
@@ -537,13 +599,39 @@ export default function SettingsPage() {
               </button>
             </div>
           ) : (
-            <div className="text-xs text-nx-muted">
+            <div className="rounded-xl border border-dashed border-gray-300 bg-white p-4 text-xs text-nx-muted">
               No active project selected. Switch to a project to manage membership.
             </div>
           )}
+
+          {/* Permanently Delete Account Card */}
+          <div className="rounded-xl border border-red-300 bg-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-4 w-4 text-red-600" />
+                <h3 className="text-sm font-bold text-gray-900">Permanently Delete Account</h3>
+              </div>
+              <p className="text-xs text-gray-600 max-w-lg">
+                Permanently delete your personal profile, credentials, and settings from Nexora. Your team projects will remain intact with remaining collaborators.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteAccountError(null);
+                setIsDeleteAccountModalOpen(true);
+              }}
+              className="flex items-center gap-2 rounded-lg bg-red-700 px-4 py-2 text-xs font-bold text-white hover:bg-red-600 transition-colors shadow-sm shrink-0"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span>Delete Account</span>
+            </button>
+          </div>
         </div>
       )}
 
+      {/* Confirmation Modal for Leave Project */}
       <ConfirmationModal
         isOpen={isLeaveModalOpen}
         title="Leave Project?"
@@ -558,6 +646,25 @@ export default function SettingsPage() {
           if (!leaveLoading) {
             setIsLeaveModalOpen(false);
             setLeaveError(null);
+          }
+        }}
+      />
+
+      {/* Confirmation Modal for Delete Account */}
+      <ConfirmationModal
+        isOpen={isDeleteAccountModalOpen}
+        title="Permanently Delete Account?"
+        message={`Are you sure you want to delete your Nexora account (${currentUser?.username ? `@${currentUser.username}` : currentUser?.email})? This action is permanent and cannot be undone. All your personal profile credentials, notifications, and availability blocks will be deleted.`}
+        confirmLabel="Permanently Delete Account"
+        cancelLabel="Keep My Account"
+        variant="danger"
+        isLoading={deleteAccountLoading}
+        errorMessage={deleteAccountError}
+        onConfirm={handleConfirmDeleteAccount}
+        onCancel={() => {
+          if (!deleteAccountLoading) {
+            setIsDeleteAccountModalOpen(false);
+            setDeleteAccountError(null);
           }
         }}
       />

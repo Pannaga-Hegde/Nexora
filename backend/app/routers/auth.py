@@ -2,7 +2,7 @@ import uuid
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 class UserRegister(BaseModel):
     username: str
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=128)
     full_name: Optional[str] = None
 
 class TokenResponse(BaseModel):

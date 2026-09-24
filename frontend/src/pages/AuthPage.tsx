@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowRight,
@@ -19,17 +19,11 @@ interface AuthPageProps {
 
 export default function AuthPage({ initialMode }: AuthPageProps) {
   const setAuth = useAuthStore((state) => state.setAuth);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Determine mode from prop or current pathname
-  const isRegisterRoute = initialMode === 'register' || location.pathname === '/register';
-  const [isRegister, setIsRegister] = useState(isRegisterRoute);
-
-  useEffect(() => {
-    setIsRegister(initialMode === 'register' || location.pathname === '/register');
-  }, [initialMode, location.pathname]);
+  // Determine mode directly from route or prop (no cascading effect needed)
+  const isRegister = initialMode === 'register' || location.pathname === '/register';
 
   // Form State
   const [fullName, setFullName] = useState('');
@@ -44,12 +38,6 @@ export default function AuthPage({ initialMode }: AuthPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-
-  // Redirect if already authenticated
-  if (isAuthenticated) {
-    navigate('/dashboard', { replace: true });
-    return null;
-  }
 
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
@@ -284,7 +272,7 @@ export default function AuthPage({ initialMode }: AuthPageProps) {
           <button
             type="button"
             onClick={() => {
-              setIsRegister(false);
+              navigate('/login', { replace: true });
               setError(null);
               setFieldErrors({});
             }}
@@ -300,7 +288,7 @@ export default function AuthPage({ initialMode }: AuthPageProps) {
           <button
             type="button"
             onClick={() => {
-              setIsRegister(true);
+              navigate('/register', { replace: true });
               setError(null);
               setFieldErrors({});
             }}

@@ -16,7 +16,10 @@ if not DATABASE_URL:
 # Disable SQL query echo in production by default; enable only if SQL_ECHO is explicitly 'true'
 SQL_ECHO = os.getenv("SQL_ECHO", "false").lower() in ("true", "1", "yes")
 
-engine = create_engine(DATABASE_URL, echo=SQL_ECHO)
+# Connect args for SQLite if used locally
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+
+engine = create_engine(DATABASE_URL, echo=SQL_ECHO, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
