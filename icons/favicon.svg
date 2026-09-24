@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <!-- Background Gradient for high contrast on dark & light browser tabs -->
+    <linearGradient id="favBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b132b"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+
+    <!-- Left Cyan Loop -->
+    <linearGradient id="ribbonLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="50%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+
+    <!-- Center Diagonal Cross Ribbon -->
+    <linearGradient id="ribbonCenter" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="35%" stop-color="#2563eb"/>
+      <stop offset="70%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#c084fc"/>
+    </linearGradient>
+
+    <!-- Right Wing Slant -->
+    <linearGradient id="ribbonRight" x1="0%" y1="50%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="60%" stop-color="#9333ea"/>
+      <stop offset="100%" stop-color="#e879f9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Deep Blue Squircle Container (fills 100% of favicon area with soft rounded corners) -->
+  <rect width="32" height="32" rx="7.5" fill="url(#favBg)"/>
+
+  <!-- Crisp Vector N-X Symbol (fills ~88% of canvas, no muddy blur/glow) -->
+  <g transform="translate(16, 16) scale(0.054) translate(-256, -256)">
+    <!-- Back Loop / Bottom Fold -->
+    <path d="M 120,240 C 90,160 140,80 230,80 C 310,80 370,140 430,220 C 470,275 490,320 460,370 C 430,420 360,420 310,360 C 260,300 200,160 150,110 C 130,90 100,80 70,110 C 40,140 40,200 70,260 C 100,320 180,410 260,410 C 340,410 400,360 450,290" 
+          fill="none" stroke="url(#ribbonCenter)" stroke-width="82" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Top Left Cyan Overlap -->
+    <path d="M 75,140 C 55,185 65,245 105,295 C 145,345 205,385 265,385 C 325,385 375,345 415,285" 
+          fill="none" stroke="url(#ribbonLeft)" stroke-width="78" stroke-linecap="round"/>
+
+    <!-- Top Right Violet Wing Slant -->
+    <path d="M 280,240 C 340,160 400,100 460,100" 
+          fill="none" stroke="url(#ribbonRight)" stroke-width="76" stroke-linecap="round"/>
+  </g>
+</svg>

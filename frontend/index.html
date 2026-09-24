@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nexora — Connected Project Work</title>
+    <meta name="description" content="Nexora connects your team's conversations, tasks, milestones, files, and project activity in one workspace—so decisions stay attached to the work they create." />
+    <meta name="theme-color" content="#4f46e5" />
+    <script>
+      (function() {
+        try {
+          var storedTheme = localStorage.getItem('nexora-theme') || 'system';
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (storedTheme === 'dark' || (storedTheme === 'system' && prefersDark)) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
+
+    <!-- Favicon & Touch Icons -->
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48x48.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Open Graph / Facebook / LinkedIn -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Nexora" />
+    <meta property="og:title" content="Nexora — Connected Project Work" />
+    <meta property="og:description" content="Nexora connects your team's conversations, tasks, milestones, files, and project activity in one workspace—so decisions stay attached to the work they create." />
+    <meta property="og:image" content="/image/nexora-opengraph.png" />
+    <meta property="og:image:width" content="1672" />
+    <meta property="og:image:height" content="941" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Nexora — Connected Project Work" />
+    <meta name="twitter:description" content="Nexora connects your team's conversations, tasks, milestones, files, and project activity in one workspace—so decisions stay attached to the work they create." />
+    <meta name="twitter:image" content="/image/nexora-opengraph.png" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body class="bg-nx-app text-nx-primary antialiased selection:bg-indigo-500 selection:text-white">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

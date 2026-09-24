@@ -1,0 +1,23 @@
+User-agent: *
+Allow: /
+Allow: /features
+Allow: /pricing
+Allow: /contact
+Allow: /privacy
+Allow: /terms
+
+# Disallow private application routes from search indexing
+Disallow: /dashboard
+Disallow: /tasks
+Disallow: /projects
+Disallow: /health
+Disallow: /chat
+Disallow: /requests
+Disallow: /calendar
+Disallow: /community
+Disallow: /settings
+Disallow: /contribution
+Disallow: /login
+
+# Sitemap location: automatically resolves relative to host or configure absolute URL with custom domain upon DNS launch
+Sitemap: /sitemap.xml
