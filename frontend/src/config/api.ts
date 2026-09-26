@@ -49,6 +49,7 @@ export function getWebSocketUrl(path: string): string {
 
 /**
  * Reads a cookie value by name from document.cookie.
+ * (Note: May return null in cross-origin environments)
  */
 export function getCookie(name: string): string | null {
   if (typeof document === 'undefined') return null;
@@ -57,29 +58,65 @@ export function getCookie(name: string): string | null {
 }
 
 /**
- * Standard authorization & CSRF headers for state-changing operations.
- * Authentication token is securely managed by the browser in an HttpOnly cookie.
+ * Standard authorization headers helper.
+ * CSRF token injection is now handled automatically and asynchronously 
+ * by the global fetch interceptor below to support cross-origin setups.
  */
 export function getAuthHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {};
-  const csrfToken = getCookie('nexora_csrf');
-  if (csrfToken) {
-    headers['X-CSRF-Token'] = csrfToken;
-  }
-  return headers;
+  return {};
 }
 
 // Automatically ensure credentials: 'include' and CSRF header on client fetch
 if (typeof window !== 'undefined' && window.fetch) {
   const originalFetch = window.fetch;
-  window.fetch = function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  
+  let cachedCsrfToken: string | null = null;
+  let csrfFetchPromise: Promise<string | null> | null = null;
+
+  const fetchCsrfToken = async (): Promise<string | null> => {
+    if (cachedCsrfToken) return cachedCsrfToken;
+    if (csrfFetchPromise) return csrfFetchPromise;
+
+    csrfFetchPromise = (async () => {
+      try {
+        const url = getApiUrl('/auth/csrf-token');
+        const response = await originalFetch(url, { credentials: 'include' });
+        if (response.ok) {
+          const data = await response.json();
+          cachedCsrfToken = data.csrf_token || null;
+        } else {
+          cachedCsrfToken = null;
+        }
+      } catch (e) {
+        cachedCsrfToken = null;
+      } finally {
+        csrfFetchPromise = null;
+      }
+      return cachedCsrfToken;
+    })();
+
+    return csrfFetchPromise;
+  };
+
+  window.fetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     const customInit: RequestInit = init ? { ...init } : {};
     if (!customInit.credentials) {
       customInit.credentials = 'include';
     }
-    const method = (customInit.method || 'GET').toUpperCase();
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
-      const csrf = getCookie('nexora_csrf');
+    
+    let method = 'GET';
+    if (customInit.method) {
+      method = customInit.method.toUpperCase();
+    } else if (input instanceof Request) {
+      method = input.method.toUpperCase();
+    }
+    
+    // Prevent infinite loop if fetching the token itself
+    const urlString = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : input.url);
+    const isCsrfEndpoint = urlString.includes('/auth/csrf-token');
+
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && !isCsrfEndpoint) {
+      const csrf = await fetchCsrfToken();
       if (csrf) {
         if (customInit.headers instanceof Headers) {
           if (!customInit.headers.has('X-CSRF-Token')) {
@@ -98,6 +135,19 @@ if (typeof window !== 'undefined' && window.fetch) {
         }
       }
     }
-    return originalFetch(input, customInit);
+    
+    const response = await originalFetch(input, customInit);
+    
+    // Invalidate CSRF cache on auth state changes or on 403 (to recover from invalid tokens)
+    if (
+      ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && 
+      (urlString.includes('/auth/login') || urlString.includes('/auth/register') || urlString.includes('/auth/logout'))
+    ) {
+      cachedCsrfToken = null;
+    } else if (response.status === 403 && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      cachedCsrfToken = null;
+    }
+    
+    return response;
   };
 }
