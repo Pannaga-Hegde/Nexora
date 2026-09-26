@@ -38,7 +38,7 @@ if not migration_database_url:
 
 # Override sqlalchemy.url with the resolved migration URL.
 # This value is never printed to logs.
-config.set_main_option("sqlalchemy.url", migration_database_url)
+config.set_main_option("sqlalchemy.url", migration_database_url.replace("%", "%%"))
 
 # Add application's model MetaData object for autogenerate support
 target_metadata = Base.metadata
