@@ -24,7 +24,7 @@ COOKIE_NAME = "nexora_auth"
 CSRF_COOKIE_NAME = "nexora_csrf"
 COOKIE_MAX_AGE = 86400  # 24 hours
 COOKIE_PATH = "/"
-COOKIE_SAMESITE = "lax"
+COOKIE_SAMESITE = "none"
 
 
 def is_cookie_secure() -> bool:

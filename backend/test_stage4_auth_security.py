@@ -126,7 +126,7 @@ def run_tests():
         cookie_headers = [v for k, v in login_res.headers.raw if k.decode("latin1").lower() == "set-cookie"]
         auth_cookie_header = next((h.decode("latin1") for h in cookie_headers if COOKIE_NAME in h.decode("latin1")), "")
         check("httponly" in auth_cookie_header.lower(), "Auth cookie has HttpOnly flag")
-        check("samesite=lax" in auth_cookie_header.lower(), "Auth cookie has SameSite=Lax")
+        check("samesite=none" in auth_cookie_header.lower(), "Auth cookie has SameSite=None")
         check("path=/" in auth_cookie_header.lower(), "Auth cookie has Path=/")
 
         # 2. Invalid password returns 401

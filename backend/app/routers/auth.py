@@ -383,7 +383,7 @@ def get_csrf_token(response: Response):
         max_age=86400,
         httponly=False,
         secure=is_cookie_secure(),
-        samesite="lax",
+        samesite="none",
         path="/",
     )
     return {"csrf_token": token}
