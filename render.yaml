@@ -1,0 +1,73 @@
+# Nexora — Render Service Configuration
+# ==========================================
+# This file documents the Render deployment configuration.
+# Do NOT commit real secrets here — they must be set in Render's Dashboard.
+#
+# Reference: https://render.com/docs/render-yaml
+# ==========================================
+
+services:
+  # ── FastAPI Backend ──────────────────────────────────────────────────────────
+  - type: web
+    name: nexora-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    region: singapore   # Choose your nearest region
+    plan: starter       # Upgrade to Standard for production load
+
+    # Render dynamically injects PORT; our CMD uses ${PORT:-8000}
+    healthCheckPath: /health
+
+    # Environment variables — set real values in Render Dashboard, not here
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+
+      - key: DATABASE_URL
+        sync: false   # Set securely in Render Dashboard (nexora_runtime role)
+
+      - key: MIGRATION_DATABASE_URL
+        sync: false   # Set securely in Render Dashboard (nexora_migrator role)
+
+      - key: SECRET_KEY
+        generateValue: true   # Let Render auto-generate, or set manually
+
+      - key: MFA_ENCRYPTION_KEY
+        sync: false   # Set securely in Render Dashboard — required in production
+
+      - key: COOKIE_SECURE
+        value: "true"
+
+      - key: CORS_ORIGINS
+        sync: false   # Set to https://<production-frontend-domain>
+
+      - key: FRONTEND_URL
+        sync: false   # Set to https://<production-frontend-domain>
+
+      - key: SUPABASE_URL
+        sync: false   # Set securely in Render Dashboard
+
+      - key: SUPABASE_SECRET_KEY
+        sync: false   # Set securely in Render Dashboard — NEVER expose to frontend
+
+      - key: SUPABASE_STORAGE_BUCKET
+        value: nexora-files
+
+      - key: SQL_ECHO
+        value: "false"
+
+      - key: SEED_DEV_DATA
+        value: "false"
+
+      # Optional: SMTP for email invitations
+      - key: SMTP_SERVER
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SENDER_EMAIL
+        value: noreply@nexora.academic.org

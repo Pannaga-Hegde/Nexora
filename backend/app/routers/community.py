@@ -1,7 +1,7 @@
 import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -11,11 +11,15 @@ from app.dependencies import get_current_user
 
 router = APIRouter(prefix="/community", tags=["Community"])
 
+MAX_COMMUNITY_TITLE_LENGTH = 255
+MAX_COMMUNITY_CONTENT_LENGTH = 20000
+MAX_COMMUNITY_CATEGORY_LENGTH = 100
+
 
 class CommunityPostCreate(BaseModel):
-    title: str
-    content: str
-    category: Optional[str] = "General"
+    title: str = Field(..., min_length=1, max_length=MAX_COMMUNITY_TITLE_LENGTH)
+    content: str = Field(..., min_length=1, max_length=MAX_COMMUNITY_CONTENT_LENGTH)
+    category: Optional[str] = Field("General", max_length=MAX_COMMUNITY_CATEGORY_LENGTH)
 
 
 class CommunityPostResponse(BaseModel):

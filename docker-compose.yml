@@ -1,43 +1,70 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:16-alpine
-    container_name: project_os_db
+    container_name: nexora_db
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: project_os
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD environment variable is required}"
+      POSTGRES_DB: ${POSTGRES_DB:-project_os}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-project_os}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nexora_network
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: project_os_backend
+    container_name: nexora_backend
     restart: always
     environment:
-      DATABASE_URL: postgresql://postgres:postgrespassword@db:5432/project_os
-      SECRET_KEY: project-os-secret-key-production-change-me-32bytes!
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Error: POSTGRES_PASSWORD environment variable is required}@db:5432/${POSTGRES_DB:-project_os}"
+      SECRET_KEY: "${SECRET_KEY:?Error: SECRET_KEY environment variable is required}"
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://localhost:5173,http://127.0.0.1:5173}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:-}
+      SUPABASE_STORAGE_BUCKET: ${SUPABASE_STORAGE_BUCKET:-nexora-files}
+      SQL_ECHO: ${SQL_ECHO:-false}
+      SEED_DEV_DATA: ${SEED_DEV_DATA:-false}
+      SMTP_SERVER: ${SMTP_SERVER:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SENDER_EMAIL: ${SENDER_EMAIL:-noreply@nexora.academic.org}
     ports:
       - "8000:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    networks:
+      - nexora_network
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: project_os_frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    container_name: nexora_frontend
     restart: always
     ports:
       - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    networks:
+      - nexora_network
 
 volumes:
   postgres_data:
+
+networks:
+  nexora_network:
+    driver: bridge

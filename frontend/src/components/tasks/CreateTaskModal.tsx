@@ -56,6 +56,16 @@ export default function CreateTaskModal({
   const [isMounted, setIsMounted] = useState(isOpen);
   const [isVisible, setIsVisible] = useState(false);
 
+  // If modal is opened, ensure it is mounted during render (prevents cascading re-renders)
+  if (isOpen && !isMounted) {
+    setIsMounted(true);
+  }
+
+  // If modal is closed, ensure visibility is false during render to initiate exit transition
+  if (!isOpen && isVisible) {
+    setIsVisible(false);
+  }
+
   const titleInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const lastFocusedRef = useRef<HTMLElement | null>(null);
@@ -70,18 +80,18 @@ export default function CreateTaskModal({
   useEffect(() => {
     if (isOpen) {
       lastFocusedRef.current = document.activeElement as HTMLElement | null;
-      setIsMounted(true);
       const raf = requestAnimationFrame(() => setIsVisible(true));
       return () => cancelAnimationFrame(raf);
     }
 
-    setIsVisible(false);
-    const timer = setTimeout(() => {
-      setIsMounted(false);
-      lastFocusedRef.current?.focus();
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [isOpen]);
+    if (isMounted) {
+      const timer = setTimeout(() => {
+        setIsMounted(false);
+        lastFocusedRef.current?.focus();
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, isMounted]);
 
   // Reset form inputs asynchronously when modal opens
   useEffect(() => {

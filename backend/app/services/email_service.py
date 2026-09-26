@@ -10,6 +10,7 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "1025"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL", "noreply@project-os.academic.org")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 
 
 def send_email_message(
@@ -59,11 +60,12 @@ def send_project_invitation_email(
     inviter_name: str,
     role: str = "member"
 ) -> bool:
+    frontend_base = os.getenv("FRONTEND_URL", FRONTEND_URL).rstrip("/")
     subject = f"You've been invited to join project '{project_name}' on Project OS"
     body_text = (
         f"Hello,\n\n"
         f"{inviter_name} has invited you to collaborate on '{project_name}' as a {role}.\n\n"
-        f"If you do not have an account on Project OS yet, simply register at http://localhost:5173 with this email ({recipient_email}) to access your project workspace.\n\n"
+        f"If you do not have an account on Project OS yet, simply register at {frontend_base} with this email ({recipient_email}) to access your project workspace.\n\n"
         f"Best regards,\nProject OS Academic Team"
     )
     body_html = f"""
@@ -76,7 +78,7 @@ def send_project_invitation_email(
             Even if you haven't created a Project OS account yet, your access has been reserved for <strong>{recipient_email}</strong>.
         </p>
         <div style="margin: 25px 0;">
-            <a href="http://localhost:5173" style="background-color: #4f46e5; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">
+            <a href="{frontend_base}" style="background-color: #4f46e5; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">
                 Access Project OS Workspace
             </a>
         </div>

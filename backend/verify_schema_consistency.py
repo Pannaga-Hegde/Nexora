@@ -1,9 +1,11 @@
 import os
-import sys
+import ast
+import glob
 from dotenv import load_dotenv
 from sqlalchemy import inspect
 from alembic.config import Config
-from alembic import command
+from alembic.script import ScriptDirectory
+from alembic.runtime.migration import MigrationContext
 
 load_dotenv()
 
@@ -11,8 +13,21 @@ from app.database import engine
 from app.models import Base
 
 insp = inspect(engine)
-db_tables = set(insp.get_table_names())
+db_all_tables = set(insp.get_table_names())
+db_metadata_tables = db_all_tables & {"alembic_version"}
+db_app_tables = db_all_tables - {"alembic_version"}
 model_tables = set(Base.metadata.tables.keys())
+
+# Extract application tables declared across Alembic migrations
+versions_dir = os.path.join(os.path.dirname(__file__), "alembic", "versions")
+alembic_app_tables = set()
+for py_file in glob.glob(os.path.join(versions_dir, "*.py")):
+    with open(py_file, "r", encoding="utf-8") as f:
+        tree = ast.parse(f.read())
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "create_table":
+            if node.args and isinstance(node.args[0], ast.Constant):
+                alembic_app_tables.add(node.args[0].value)
 
 print("=" * 65)
 print("NEXORA STEP 3D: READ-ONLY DATABASE SCHEMA CONSISTENCY AUDIT")
@@ -20,15 +35,20 @@ print("=" * 65)
 
 # 1. Table Verification
 print("\n[1] Table Presence Verification")
-print(f"   -> Model Tables ({len(model_tables)}): {sorted(list(model_tables))}")
-print(f"   -> Database Tables ({len(db_tables)}): {sorted(list(db_tables))}")
+print(f"   -> Model Application Tables ({len(model_tables)}): {sorted(list(model_tables))}")
+print(f"   -> Alembic Application Tables ({len(alembic_app_tables)}): {sorted(list(alembic_app_tables))}")
+print(f"   -> Database Application Tables ({len(db_app_tables)}): {sorted(list(db_app_tables))}")
+print(f"   -> Database Metadata Tables ({len(db_metadata_tables)}): {sorted(list(db_metadata_tables))}")
 
-missing_in_db = model_tables - db_tables
-extra_in_db = db_tables - model_tables - {"alembic_version"}
+missing_in_db = model_tables - db_app_tables
+extra_in_db = db_app_tables - model_tables
+mismatch_alembic = model_tables ^ alembic_app_tables
 
-assert not missing_in_db, f"Missing tables in DB: {missing_in_db}"
-assert not extra_in_db, f"Unexpected extra tables in DB: {extra_in_db}"
-print("   -> TABLE PRESENCE: PASS (All 18 tables perfectly matched)")
+assert not missing_in_db, f"Missing application tables in DB: {missing_in_db}"
+assert not extra_in_db, f"Unexpected extra application tables in DB: {extra_in_db}"
+assert not mismatch_alembic, f"Mismatch between models and Alembic migrations: {mismatch_alembic}"
+assert "alembic_version" in db_all_tables, "Expected 'alembic_version' metadata table in DB"
+print(f"   -> TABLE PRESENCE: PASS (All {len(model_tables)} application tables perfectly matched across Models, Alembic, and DB)")
 
 # 2. Columns & Nullability
 print("\n[2] Columns, Types & Nullability Verification")
@@ -104,16 +124,22 @@ else:
 
 # 6. Alembic Current Revision Check
 print("\n[6] Alembic Current Version Check")
-if insp.dialect.name == "postgresql":
-    from alembic.runtime.migration import MigrationContext
-    conn = engine.connect()
-    context = MigrationContext.configure(conn)
-    current_rev = context.get_current_revision()
-    conn.close()
-    print(f"   -> Current Alembic Revision in DB: {current_rev}")
-else:
-    print("   -> Local dev SQLite database loaded via SQLAlchemy Base.metadata: PASS")
-print("   -> ALEMBIC REVISION: PASS")
+alembic_ini_path = os.path.join(os.path.dirname(__file__), "alembic.ini")
+alembic_cfg = Config(alembic_ini_path)
+script = ScriptDirectory.from_config(alembic_cfg)
+heads = script.get_heads()
+assert len(heads) == 1, f"Expected exactly 1 migration head, found: {heads}"
+expected_head = heads[0]
+
+conn = engine.connect()
+context = MigrationContext.configure(conn)
+current_rev = context.get_current_revision()
+conn.close()
+
+print(f"   -> Alembic Head Revision: {expected_head}")
+print(f"   -> Current Alembic Revision in DB: {current_rev}")
+assert current_rev == expected_head, f"Database revision ({current_rev}) != Head revision ({expected_head})"
+print("   -> ALEMBIC REVISION: PASS (Database is strictly at migration head)")
 
 print("\n" + "=" * 65)
 if not column_mismatches and not pk_fk_mismatches:

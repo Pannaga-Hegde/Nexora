@@ -15,7 +15,6 @@ from ..database import get_db
 from ..dependencies import get_current_user
 from ..models import User
 from ..schemas import (
-    UserCreate,
     UserResponse,
     UserUpdate,
 )
@@ -25,37 +24,6 @@ router = APIRouter(
     tags=["Users"],
 )
 
-@router.post(
-    "",
-    response_model=UserResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-def create_user(
-    user_data: UserCreate,
-    db: Session = Depends(get_db),
-):
-    existing_user = db.scalar(
-        select(User).where(
-            (User.email == user_data.email) | (User.username == user_data.username)
-        )
-    )
-    if existing_user:
-        raise HTTPException(
-            status_code=400,
-            detail="User with this email or username already exists",
-        )
-
-    # Note: In production, hash password before storing (e.g., passlib / bcrypt)
-    user = User(
-        username=user_data.username,
-        email=user_data.email,
-        full_name=user_data.full_name,
-        password_hash=user_data.password,  # placeholder hash
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
 
 @router.get(
     "",

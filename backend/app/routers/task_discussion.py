@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -20,19 +20,21 @@ from app.services.storage_service import (
 
 router = APIRouter(tags=["Task Discussion"])
 
+MAX_COMMENT_LENGTH = 10000
+
 
 class CommentCreatePayload(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1, max_length=MAX_COMMENT_LENGTH)
     parent_comment_id: Optional[uuid.UUID] = None
     attachment_ids: Optional[List[uuid.UUID]] = None
 
 
 class CommentUpdatePayload(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1, max_length=MAX_COMMENT_LENGTH)
 
 
 class ConvertTaskPayload(BaseModel):
-    title: Optional[str] = None
+    title: Optional[str] = Field(None, max_length=255)
     priority: Optional[str] = "MEDIUM"
     assignee_id: Optional[uuid.UUID] = None
     due_date: Optional[str] = None
@@ -657,7 +659,7 @@ async def upload_discussion_attachment(
     if not storage_service.is_configured():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Storage service is not configured on the server. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
+            detail="Storage service is not configured on the server. Please set SUPABASE_URL and SUPABASE_SECRET_KEY."
         )
 
     contents = await file.read()

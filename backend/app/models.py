@@ -1221,3 +1221,51 @@ class CommunityPost(Base):
 
     author: Mapped["User"] = relationship("User")
 
+
+class UserMFA(Base):
+    __tablename__ = "user_mfa"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+        nullable=False,
+    )
+
+    is_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+
+    encrypted_secret: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    pending_secret: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    recovery_codes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship("User")
+
+

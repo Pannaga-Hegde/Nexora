@@ -1,8 +1,9 @@
 import os
 import uuid
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 # Load environment variables early
@@ -10,7 +11,7 @@ load_dotenv()
 
 from app.database import engine, Base, SessionLocal
 from app.models import User, Project, ProjectMember, Task, TaskStatus, TaskPriority
-from app.auth import get_password_hash
+from app.auth import get_password_hash, decode_access_token, COOKIE_NAME
 from app.routers import (
     users,
     projects,
@@ -154,6 +155,9 @@ def seed_database():
 if os.getenv("SEED_DEV_DATA", "false").lower() in ("true", "1", "yes"):
     seed_database()
 
+from app.services.mfa_service import validate_mfa_configuration
+validate_mfa_configuration()
+
 app = FastAPI(title="Nexora API", version="1.0.0")
 
 # Configurable CORS Origins
@@ -162,6 +166,13 @@ cors_origins_env = os.getenv(
     "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:3000,http://127.0.0.1:3000",
 )
 allowed_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+
+# Include FRONTEND_URL in allowed origins if configured
+frontend_url_env = os.getenv("FRONTEND_URL")
+if frontend_url_env and frontend_url_env.strip():
+    cleaned_fe = frontend_url_env.strip().rstrip("/")
+    if cleaned_fe not in allowed_origins:
+        allowed_origins.append(cleaned_fe)
 
 app.add_middleware(
     CORSMiddleware,
@@ -175,6 +186,21 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     return {"message": "Nexora API is running", "version": "1.0.0"}
+
+
+@app.get("/health", tags=["System"])
+def health_check(response: Response):
+    """
+    Minimal safe system health check suitable for container health checks.
+    Pings the database without exposing sensitive credentials or internal configuration.
+    """
+    try:
+        with SessionLocal() as db:
+            db.execute(select(1))
+        return {"status": "healthy", "database": "connected"}
+    except Exception:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return {"status": "unhealthy", "database": "disconnected"}
 
 
 app.include_router(auth.router)
@@ -195,6 +221,53 @@ app.include_router(health.router)
 
 @app.websocket("/ws/projects/{project_id}")
 async def websocket_endpoint(websocket: WebSocket, project_id: str):
+    # 1. Parse and validate project UUID format
+    try:
+        proj_uuid = uuid.UUID(project_id)
+    except ValueError:
+        await websocket.close(code=4403)
+        return
+
+    # 2. Extract and validate JWT token exclusively from secure HttpOnly cookie
+    token = websocket.cookies.get(COOKIE_NAME)
+    if not token:
+        await websocket.close(code=4401)
+        return
+
+    payload = decode_access_token(token)
+    if not payload or payload.get("mfa_pending"):
+        await websocket.close(code=4401)
+        return
+
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        await websocket.close(code=4401)
+        return
+
+    try:
+        user_uuid = uuid.UUID(user_id_str)
+    except ValueError:
+        await websocket.close(code=4401)
+        return
+
+    # 3. Resolve user and verify project membership
+    with SessionLocal() as db:
+        user = db.get(User, user_uuid)
+        if not user:
+            await websocket.close(code=4401)
+            return
+
+        membership = db.scalar(
+            select(ProjectMember).where(
+                ProjectMember.project_id == proj_uuid,
+                ProjectMember.user_id == user_uuid,
+            )
+        )
+        if not membership:
+            await websocket.close(code=4403)
+            return
+
+    # 4. Authenticated & Authorized: accept connection and delegate to manager
     await manager.connect(websocket, project_id)
     try:
         while True:
@@ -202,3 +275,4 @@ async def websocket_endpoint(websocket: WebSocket, project_id: str):
             await manager.broadcast(project_id, data)
     except WebSocketDisconnect:
         manager.disconnect(websocket, project_id)
+

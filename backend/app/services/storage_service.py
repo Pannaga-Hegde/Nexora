@@ -16,7 +16,8 @@ PROHIBITED_EXTENSIONS = {
     "exe", "dll", "bat", "cmd", "sh", "bash", "vbs", "vbe", "js", "jse",
     "wsf", "wsh", "scr", "pif", "com", "jar", "msi", "ps1", "ps2", "psc1",
     "php", "phtml", "php3", "php4", "php5", "asp", "aspx", "jsp", "jspx",
-    "cgi", "pl", "pyc", "pyo", "hta", "reg", "inf", "ins"
+    "cgi", "pl", "pyc", "pyo", "hta", "reg", "inf", "ins",
+    "html", "htm", "xhtml", "svg"
 }
 
 
@@ -39,11 +40,11 @@ class SupabaseStorageService:
     def __init__(
         self,
         supabase_url: Optional[str] = None,
-        service_role_key: Optional[str] = None,
+        secret_key: Optional[str] = None,
         bucket_name: Optional[str] = None,
     ):
         self.supabase_url = (supabase_url or os.getenv("SUPABASE_URL") or "").rstrip("/")
-        self.service_role_key = service_role_key or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or ""
+        self.secret_key = secret_key or os.getenv("SUPABASE_SECRET_KEY") or ""
         self.bucket_name = (
             bucket_name
             or os.getenv("SUPABASE_STORAGE_BUCKET")
@@ -52,17 +53,17 @@ class SupabaseStorageService:
 
     def is_configured(self) -> bool:
         """Checks if server-side Supabase Storage credentials are configured."""
-        return bool(self.supabase_url and self.service_role_key)
+        return bool(self.supabase_url and self.secret_key)
 
     def _get_headers(self, content_type: Optional[str] = None) -> dict:
         if not self.is_configured():
             raise StorageConfigurationError(
                 "Supabase Storage is not configured on this server. "
-                "Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
+                "Please set SUPABASE_URL and SUPABASE_SECRET_KEY."
             )
         headers = {
-            "Authorization": f"Bearer {self.service_role_key}",
-            "apikey": self.service_role_key,
+            "Authorization": f"Bearer {self.secret_key}",
+            "apikey": self.secret_key,
         }
         if content_type:
             headers["Content-Type"] = content_type

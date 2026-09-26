@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from datetime import datetime, timedelta
 from pydantic import BaseModel
@@ -325,6 +326,19 @@ def get_project_members(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    user_id = uuid.UUID(current_user["id"]) if isinstance(current_user["id"], str) else current_user["id"]
+    membership = db.scalar(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+        )
+    )
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You are not a member of this project"
+        )
+
     members = (
         db.query(User, ProjectMember.project_role, ProjectMember.joined_at)
         .join(ProjectMember, ProjectMember.user_id == User.id)
@@ -359,6 +373,19 @@ def invite_member_by_identifier(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    user_id = uuid.UUID(current_user["id"]) if isinstance(current_user["id"], str) else current_user["id"]
+    membership = db.scalar(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+        )
+    )
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You are not a member of this project"
+        )
+
     identifier = payload.email_or_username.strip()
     target_user = db.query(User).filter(
         (User.email == identifier) | (User.username == identifier)
@@ -375,12 +402,14 @@ def invite_member_by_identifier(
             uniq_suffix = str(uuid.uuid4())[:4]
             username = f"{base_username}_{uniq_suffix}"
             
+            # Generate cryptographically secure random unusable password hash
+            unusable_password = secrets.token_urlsafe(64)
             target_user = User(
                 id=uuid.uuid4(),
                 username=username,
                 email=email_addr,
                 full_name=base_username.capitalize(),
-                password_hash=get_password_hash("InvitedGuest123!"),
+                password_hash=get_password_hash(unusable_password),
                 system_role="student"
             )
             db.add(target_user)

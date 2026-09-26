@@ -18,7 +18,7 @@ interface ChatMessage {
 /**
  * Utility function to render text with @mentions highlighted as UI badges
  */
-export function renderWithMentions(text: string) {
+function renderWithMentions(text: string) {
   const parts = text.split(/(@[A-Za-z0-9_\s]+?\b)/g);
   return parts.map((part, index) => {
     if (part.startsWith('@')) {
@@ -39,9 +39,17 @@ export default function ProjectChatPage() {
   const currentUser = useAuthStore((state) => state.user);
   const activeProject = useProjectStore((state) => state.activeProject);
 
+  const [currentProjectId, setCurrentProjectId] = useState(activeProject?.id);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Synchronize loading and messages during render when active project changes (prevents cascading effect renders)
+  if (activeProject && activeProject.id !== currentProjectId) {
+    setCurrentProjectId(activeProject.id);
+    setLoading(true);
+    setMessages([]);
+  }
 
   // Delete message confirmation state
   const [messageToDelete, setMessageToDelete] = useState<ChatMessage | null>(null);
@@ -58,26 +66,34 @@ export default function ProjectChatPage() {
   // Fetch initial REST chat messages
   useEffect(() => {
     if (!activeProject) return;
-    setLoading(true);
+    let cancelled = false;
 
     fetch(getApiUrl(`/projects/${activeProject.id}/chat/messages`), {
       headers: getAuthHeaders(),
     })
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
-        if (Array.isArray(data)) {
+        if (!cancelled && Array.isArray(data)) {
           setMessages(data);
         }
       })
       .catch((err) => console.error('Failed to load chat history:', err))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [activeProject]);
 
   // Connect WebSocket for real-time live messaging
   useEffect(() => {
     if (!activeProject) return;
 
-    const wsUrl = getWebSocketUrl(`/ws/projects/${activeProject.id}`);
+    // Connect via secure cookie-authenticated WebSocket
+    const wsEndpoint = `/ws/projects/${activeProject.id}`;
+    const wsUrl = getWebSocketUrl(wsEndpoint);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 

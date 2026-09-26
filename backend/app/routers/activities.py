@@ -1,21 +1,23 @@
 import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from app.database import get_db
-from app.models import Task, TaskActivity, ActivityType
-from app.dependencies import get_current_user
+from app.models import Task, TaskActivity, ActivityType, Project
+from app.dependencies import get_current_user, verify_project_membership
 
 router = APIRouter(
     prefix="/projects/{project_id}/tasks/{task_id}/activities",
     tags=["Task Activities & Comments"],
 )
 
+MAX_ACTIVITY_COMMENT_LENGTH = 10000
+
 class ActivityCreate(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1, max_length=MAX_ACTIVITY_COMMENT_LENGTH)
 
 class ActivityResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -36,6 +38,13 @@ def get_task_activities(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    user_id = current_user["id"] if isinstance(current_user["id"], uuid.UUID) else uuid.UUID(str(current_user["id"]))
+    verify_project_membership(db, project_id, user_id)
+
     task = db.scalar(
         select(Task).where(Task.id == task_id, Task.project_id == project_id)
     )
@@ -71,6 +80,13 @@ def add_task_comment(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    user_id = current_user["id"] if isinstance(current_user["id"], uuid.UUID) else uuid.UUID(str(current_user["id"]))
+    verify_project_membership(db, project_id, user_id)
+
     task = db.scalar(
         select(Task).where(Task.id == task_id, Task.project_id == project_id)
     )
@@ -80,7 +96,7 @@ def add_task_comment(
     act = TaskActivity(
         id=uuid.uuid4(),
         task_id=task_id,
-        actor_id=current_user["id"],
+        actor_id=user_id,
         activity_type=ActivityType.COMMENT,
         content=activity_in.content,
     )

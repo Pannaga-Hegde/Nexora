@@ -24,16 +24,21 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Database URL from environment variable
-database_url = os.getenv("DATABASE_URL")
-if not database_url:
+# Prefer MIGRATION_DATABASE_URL (nexora_migrator role with DDL privileges) when present.
+# Fall back to DATABASE_URL so local development workflows that only set DATABASE_URL
+# continue to work without any additional configuration.
+migration_database_url = os.getenv("MIGRATION_DATABASE_URL") or os.getenv("DATABASE_URL")
+if not migration_database_url:
     raise RuntimeError(
-        "DATABASE_URL environment variable is not set. "
-        "Alembic migrations require a valid DATABASE_URL in the environment or .env file."
+        "Neither MIGRATION_DATABASE_URL nor DATABASE_URL environment variable is set. "
+        "Alembic migrations require a valid PostgreSQL connection string. "
+        "For production: set MIGRATION_DATABASE_URL (nexora_migrator role). "
+        "For local development: set DATABASE_URL."
     )
 
-# Override sqlalchemy.url with dynamic environment variable
-config.set_main_option("sqlalchemy.url", database_url)
+# Override sqlalchemy.url with the resolved migration URL.
+# This value is never printed to logs.
+config.set_main_option("sqlalchemy.url", migration_database_url)
 
 # Add application's model MetaData object for autogenerate support
 target_metadata = Base.metadata

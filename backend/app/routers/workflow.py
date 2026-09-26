@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.database import get_db
 from app.models import Request, Notification, CalendarEvent, Task, User, Project, ProjectMember
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, verify_project_membership
 from app.services.notifications import trigger_notification
 
 router = APIRouter(prefix="/workflow", tags=["Workflow & Accountability"])
@@ -177,6 +177,13 @@ def get_calendar_events(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    user_id = current_user["id"] if isinstance(current_user["id"], uuid.UUID) else uuid.UUID(str(current_user["id"]))
+    verify_project_membership(db, project_id, user_id)
+
     # Combine custom calendar events and task due dates
     events = (
         db.query(CalendarEvent, User.full_name, User.username)
@@ -231,7 +238,9 @@ def create_calendar_event(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    user_id = uuid.UUID(current_user["id"]) if isinstance(current_user["id"], str) else current_user["id"]
+    user_id = current_user["id"] if isinstance(current_user["id"], uuid.UUID) else uuid.UUID(str(current_user["id"]))
+    verify_project_membership(db, project_id, user_id)
+
     event_type = (payload.event_type or "MEETING").upper()
 
     evt = CalendarEvent(
@@ -298,14 +307,25 @@ def handle_cancel_calendar_event(
     if not evt:
         raise HTTPException(status_code=404, detail="Calendar event / meeting not found")
 
-    user_id = uuid.UUID(current_user["id"]) if isinstance(current_user["id"], str) else current_user["id"]
+    user_id = current_user["id"] if isinstance(current_user["id"], uuid.UUID) else uuid.UUID(str(current_user["id"]))
+    membership = verify_project_membership(db, evt.project_id, user_id)
 
-    # Authorization check: only the scheduler (creator) can cancel
-    if evt.creator_id and evt.creator_id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden: Only the user who scheduled the meeting can cancel it."
-        )
+    is_manager = membership.project_role in ["manager", "owner", "admin"]
+
+    # Authorization check: only the scheduler (creator) or an authorized project manager can cancel
+    if evt.creator_id:
+        if evt.creator_id != user_id and not is_manager:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden: Only the user who scheduled the meeting or a project manager can cancel it."
+            )
+    else:
+        # If creator_id is NULL, only an explicitly authorized project manager can cancel
+        if not is_manager:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden: Only a project manager can cancel unassigned meetings."
+            )
 
     project = db.get(Project, evt.project_id)
     project_name = project.name if project else "the project"

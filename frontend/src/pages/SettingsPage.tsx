@@ -114,7 +114,6 @@ export default function SettingsPage() {
     setProfileStatus(null);
 
     try {
-      const token = localStorage.getItem('project_os_token');
       const res = await fetch(getApiUrl('/users/me'), {
         method: 'PATCH',
         headers: {
@@ -133,18 +132,13 @@ export default function SettingsPage() {
         throw new Error(data.detail || 'Failed to update profile');
       }
 
-      if (token) {
-        setAuth(
-          {
-            id: data.id,
-            username: data.username,
-            email: data.email,
-            full_name: data.full_name,
-            system_role: data.system_role,
-          },
-          token
-        );
-      }
+      setAuth({
+        id: data.id,
+        username: data.username,
+        email: data.email,
+        full_name: data.full_name,
+        system_role: data.system_role,
+      });
 
       setProfileStatus({ type: 'success', text: 'Profile information updated successfully!' });
     } catch (err: unknown) {

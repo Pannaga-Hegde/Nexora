@@ -9,6 +9,8 @@ from sqlalchemy import select, func
 from app.database import get_db
 from app.models import (
     Project,
+    ProjectMember,
+    Conversation,
     Task,
     TaskStatus,
     TaskActivity,
@@ -17,7 +19,7 @@ from app.models import (
     User,
     Message,
 )
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, verify_project_membership
 from app.services.notifications import trigger_notification
 
 router = APIRouter(prefix="/analytics", tags=["Insights & Ecosystem"])
@@ -69,6 +71,13 @@ def get_project_analytics(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    user_id = current_user["id"] if isinstance(current_user["id"], uuid.UUID) else uuid.UUID(str(current_user["id"]))
+    verify_project_membership(db, project_id, user_id)
+
     tasks = db.query(Task).filter(Task.project_id == project_id).all()
     total = len(tasks)
     if total == 0:
@@ -116,10 +125,23 @@ def global_search(
     if not query:
         return []
 
+    user_id = current_user["id"] if isinstance(current_user["id"], uuid.UUID) else uuid.UUID(str(current_user["id"]))
+    user_project_ids = db.scalars(
+        select(ProjectMember.project_id).where(ProjectMember.user_id == user_id)
+    ).all()
+
+    if not user_project_ids:
+        return []
+
     results = []
 
-    # Search Tasks
-    tasks = db.query(Task).filter(Task.title.ilike(f"%{query}%")).limit(5).all()
+    # Search Tasks scoped to projects where current_user is a member
+    tasks = (
+        db.query(Task)
+        .filter(Task.project_id.in_(user_project_ids), Task.title.ilike(f"%{query}%"))
+        .limit(5)
+        .all()
+    )
     for t in tasks:
         results.append({
             "id": str(t.id),
@@ -129,8 +151,14 @@ def global_search(
             "link": "/tasks",
         })
 
-    # Search Chat Messages
-    msgs = db.query(Message).filter(Message.content.ilike(f"%{query}%")).limit(5).all()
+    # Search Chat Messages scoped to projects where current_user is a member
+    msgs = (
+        db.query(Message)
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .filter(Conversation.project_id.in_(user_project_ids), Message.content.ilike(f"%{query}%"))
+        .limit(5)
+        .all()
+    )
     for m in msgs:
         results.append({
             "id": str(m.id),
@@ -140,8 +168,13 @@ def global_search(
             "link": "/chat",
         })
 
-    # Search Files
-    files = db.query(FileStorage).filter(FileStorage.file_name.ilike(f"%{query}%")).limit(5).all()
+    # Search Files scoped to projects where current_user is a member
+    files = (
+        db.query(FileStorage)
+        .filter(FileStorage.project_id.in_(user_project_ids), FileStorage.file_name.ilike(f"%{query}%"))
+        .limit(5)
+        .all()
+    )
     for f in files:
         results.append({
             "id": str(f.id),
@@ -163,6 +196,13 @@ def get_milestones(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    user_id = current_user["id"] if isinstance(current_user["id"], uuid.UUID) else uuid.UUID(str(current_user["id"]))
+    verify_project_membership(db, project_id, user_id)
+
     ms = db.query(Milestone).filter(Milestone.project_id == project_id).order_by(Milestone.created_at.asc()).all()
     result = []
     for m in ms:
@@ -184,6 +224,13 @@ def create_milestone(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    user_id = current_user["id"] if isinstance(current_user["id"], uuid.UUID) else uuid.UUID(str(current_user["id"]))
+    verify_project_membership(db, project_id, user_id)
+
     m = Milestone(
         id=uuid.uuid4(),
         project_id=project_id,
@@ -215,6 +262,10 @@ def toggle_milestone(
     m = db.get(Milestone, milestone_id)
     if not m:
         raise HTTPException(status_code=404, detail="Milestone not found")
+
+    user_id = current_user["id"] if isinstance(current_user["id"], uuid.UUID) else uuid.UUID(str(current_user["id"]))
+    verify_project_membership(db, m.project_id, user_id)
+
     m.is_completed = not m.is_completed
     db.commit()
     return {"status": "success", "is_completed": m.is_completed}
@@ -251,6 +302,13 @@ def apply_academic_template(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    user_id = current_user["id"] if isinstance(current_user["id"], uuid.UUID) else uuid.UUID(str(current_user["id"]))
+    verify_project_membership(db, project_id, user_id)
+
     ttype = payload.template_type.upper()
     templates = {
         "CAPSTONE": [

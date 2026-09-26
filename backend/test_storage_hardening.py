@@ -24,7 +24,7 @@ print("=" * 65)
 
 # Setup test user and project
 db = SessionLocal()
-PROJ_1_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
+PROJ_1_ID = uuid.UUID("a0000000-0000-0000-0000-000000000001")
 
 proj = db.get(Project, PROJ_1_ID)
 if not proj:
@@ -59,12 +59,14 @@ lead_token = create_access_token({"sub": str(lead_user.id), "username": lead_use
 auth_headers = {"Authorization": f"Bearer {lead_token}"}
 
 # Create a test task in PROJ_1_ID
+test_task_id = uuid.uuid4()
+lead_user_id = lead_user.id
 test_task = Task(
-    id=uuid.uuid4(),
+    id=test_task_id,
     title="Storage Test Task",
     project_id=PROJ_1_ID,
-    reporter_id=lead_user.id,
-    assignee_id=lead_user.id,
+    reporter_id=lead_user_id,
+    assignee_id=lead_user_id,
 )
 db.add(test_task)
 db.commit()
@@ -72,8 +74,9 @@ db.commit()
 # Create a non-member user
 non_member = db.query(User).filter(User.username == "unauthorized_storage_user").first()
 if not non_member:
+    non_member_id = uuid.uuid4()
     non_member = User(
-        id=uuid.uuid4(),
+        id=non_member_id,
         username="unauthorized_storage_user",
         email="unauth_storage@example.com",
         password_hash="mock",
@@ -81,13 +84,11 @@ if not non_member:
     )
     db.add(non_member)
     db.commit()
+else:
+    non_member_id = non_member.id
 
-non_member_token = create_access_token({"sub": str(non_member.id), "username": non_member.username})
+non_member_token = create_access_token({"sub": str(non_member_id), "username": non_member.username})
 non_member_headers = {"Authorization": f"Bearer {non_member_token}"}
-
-test_task_id = test_task.id
-lead_user_id = lead_user.id
-non_member_id = non_member.id
 
 db.close()
 
@@ -181,7 +182,10 @@ with patch.object(storage_service, "is_configured", return_value=True):
 # Test E: Prohibited Executable / Dangerous File Rejection (.exe, .bat, .sh)
 # -------------------------------------------------------------
 print("\n[6] Test E: Prohibited Executable / Dangerous File Rejection")
-dangerous_files = ["malware.exe", "exploit.bat", "script.sh", "payload.vbs", "shell.php"]
+dangerous_files = [
+    "malware.exe", "exploit.bat", "script.sh", "payload.vbs", "shell.php",
+    "exploit.html", "vector.svg", "page.htm", "doc.xhtml", "UPPER.SVG"
+]
 with patch.object(storage_service, "is_configured", return_value=True):
     for bad_file in dangerous_files:
         res_bad = client.post(

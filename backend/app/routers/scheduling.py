@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from app.database import get_db
 from app.models import AvailabilityBlock, Project, ProjectMember, User
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, verify_project_membership
 from app.schemas import (
     AvailabilityBlockCreate,
     AvailabilityBlockResponse,
@@ -136,6 +136,9 @@ def get_project_meeting_suggestions(
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    user_id = current_user["id"] if isinstance(current_user["id"], uuid.UUID) else uuid.UUID(str(current_user["id"]))
+    verify_project_membership(db, project_id, user_id)
 
     members = db.scalars(
         select(User)

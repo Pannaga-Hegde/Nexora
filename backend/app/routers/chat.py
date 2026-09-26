@@ -1,19 +1,21 @@
 import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from app.database import get_db, SessionLocal
-from app.models import Conversation, Message, User, Project
+from app.models import Conversation, Message, User, Project, ProjectMember
 from app.dependencies import get_current_user
 from app.websockets import manager
 
 router = APIRouter(prefix="/projects/{project_id}/chat", tags=["Project Chat"])
 
+MAX_CHAT_MESSAGE_LENGTH = 4000
+
 class MessageCreate(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1, max_length=MAX_CHAT_MESSAGE_LENGTH)
 
 class MessageResponse(BaseModel):
     id: str
@@ -47,6 +49,19 @@ def get_project_messages(
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    user_id = uuid.UUID(current_user["id"]) if isinstance(current_user["id"], str) else current_user["id"]
+    membership = db.scalar(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+        )
+    )
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You are not a member of this project"
+        )
 
     conv = get_or_create_conversation(db, project_id)
     
@@ -82,12 +97,25 @@ async def send_project_message(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    user_id = uuid.UUID(current_user["id"]) if isinstance(current_user["id"], str) else current_user["id"]
+    membership = db.scalar(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+        )
+    )
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You are not a member of this project"
+        )
+
     conv = get_or_create_conversation(db, project_id)
 
     msg = Message(
         id=uuid.uuid4(),
         conversation_id=conv.id,
-        sender_id=current_user["id"],
+        sender_id=user_id,
         content=payload.content.strip(),
     )
     db.add(msg)
@@ -125,12 +153,23 @@ async def delete_project_message(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    user_id = uuid.UUID(current_user["id"]) if isinstance(current_user["id"], str) else current_user["id"]
+    membership = db.scalar(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+        )
+    )
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You are not a member of this project"
+        )
+
     conv = get_or_create_conversation(db, project_id)
     msg = db.get(Message, message_id)
     if not msg or msg.conversation_id != conv.id:
         raise HTTPException(status_code=404, detail="Message not found")
-
-    user_id = uuid.UUID(current_user["id"]) if isinstance(current_user["id"], str) else current_user["id"]
 
     if msg.sender_id != user_id:
         raise HTTPException(
