@@ -71,10 +71,13 @@ function TaskDetailModalContent({ task, onClose }: { task: Task; onClose: () => 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Dark backdrop */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" onClick={onClose} />
       {/* Modal panel — fully opaque, isolated from backdrop blur */}
-      <div className="relative z-10 flex min-h-full items-center justify-center p-4">
-      <div className="isolate w-full max-w-xl rounded-xl bg-white p-6 shadow-2xl border border-gray-200 my-8">
+      <div className="relative z-10 flex min-h-full items-center justify-center p-4" onClick={onClose}>
+      <div 
+        className="isolate w-full max-w-xl rounded-xl bg-white p-6 shadow-2xl border border-gray-200 my-8"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between border-b border-nx-border pb-4">
           <h2 className="text-lg font-bold text-nx-primary">Task Details & Health</h2>
           <button

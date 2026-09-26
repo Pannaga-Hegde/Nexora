@@ -188,6 +188,7 @@ export default function TaskCard({ task, risk, isOverlay = false, onOpenDetail }
   const riskDisplay = getRiskDisplay();
 
   return (
+    <>
     <div
       ref={isOverlay ? undefined : setNodeRef}
       style={isOverlay ? undefined : style}
@@ -344,7 +345,7 @@ export default function TaskCard({ task, risk, isOverlay = false, onOpenDetail }
           )}
         </div>
       </div>
-
+    </div>
       <ConfirmationModal
         isOpen={showDeleteModal}
         title="Delete Task?"
@@ -355,6 +356,6 @@ export default function TaskCard({ task, risk, isOverlay = false, onOpenDetail }
         onConfirm={handleConfirmDelete}
         onClose={() => !isDeleting && setShowDeleteModal(false)}
       />
-    </div>
+    </>
   );
 }
