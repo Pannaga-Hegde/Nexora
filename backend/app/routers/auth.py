@@ -386,6 +386,8 @@ def get_csrf_token(response: Response):
         samesite="none",
         path="/",
     )
+    # Defense-in-depth: Ensure the browser and edge proxies never cache this token
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return {"csrf_token": token}
 
 

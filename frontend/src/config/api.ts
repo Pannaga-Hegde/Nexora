@@ -80,14 +80,17 @@ if (typeof window !== 'undefined' && window.fetch) {
     csrfFetchPromise = (async () => {
       try {
         const url = getApiUrl('/auth/csrf-token');
-        const response = await originalFetch(url, { credentials: 'include' });
+        const response = await originalFetch(url, { 
+          credentials: 'include',
+          cache: 'no-store' 
+        });
         if (response.ok) {
           const data = await response.json();
           cachedCsrfToken = data.csrf_token || null;
         } else {
           cachedCsrfToken = null;
         }
-      } catch (e) {
+      } catch {
         cachedCsrfToken = null;
       } finally {
         csrfFetchPromise = null;
